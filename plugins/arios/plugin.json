@@ -1,0 +1,30 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "arios",
+  "version": "0.1.47",
+  "description": "Connect your assistant to your company in Arios. Read accounts and transactions, bring bills in, and prepare a bill payment. The plugin never moves money: a person submits every payment in Arios.",
+  "author": {
+    "name": "Arios",
+    "url": "https://arios.co"
+  },
+  "homepage": "https://github.com/arios-co/plugins",
+  "repository": "https://github.com/arios-co/plugins",
+  "license": "MIT",
+  "keywords": [
+    "finance",
+    "accounting",
+    "payables",
+    "bills",
+    "mcp"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Arios",
+        "developerName": "Arios",
+        "category": "Finance",
+        "websiteURL": "https://arios.co"
+      }
+    }
+  }
+}

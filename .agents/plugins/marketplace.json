@@ -1,0 +1,20 @@
+{
+  "name": "arios",
+  "interface": {
+    "displayName": "Arios"
+  },
+  "plugins": [
+    {
+      "name": "arios",
+      "source": {
+        "source": "local",
+        "path": "./plugins/arios"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Finance"
+    }
+  ]
+}

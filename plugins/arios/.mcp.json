@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "arios": {
+      "type": "http",
+      "url": "https://app.arios.co/mcp"
+    }
+  }
+}

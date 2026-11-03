@@ -1,0 +1,21 @@
+{
+  "name": "arios",
+  "owner": {
+    "name": "Arios"
+  },
+  "description": "The Arios plugin. Connect a company in Arios and work on its accounts and bills.",
+  "plugins": [
+    {
+      "name": "arios",
+      "source": "./plugins/arios",
+      "description": "Connect your assistant to your company in Arios. Read accounts and transactions, bring bills in, and prepare a bill payment. The plugin never moves money: a person submits every payment in Arios.",
+      "category": "finance",
+      "tags": [
+        "finance",
+        "accounting",
+        "payables",
+        "mcp"
+      ]
+    }
+  ]
+}
