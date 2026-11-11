@@ -47,8 +47,8 @@ refusal that lists the approved companies. Give the person that name, and read i
    - Totals include posted rows only. Report `pending_count` and `failed_count` separately from the
      monetary totals. Neither pending nor failed rows are money spent or received.
    - When describing individual rows, `direction` `debit` is money out and `credit` is money in. A
-     row with stage `reversed` or `disputed` is also excluded from the totals. Name its stage when
-     you report it. Do not add it or a refund to the reported spending.
+     row with stage `reversed` is also excluded from the totals. Name its stage when you report it.
+     Do not add it or a refund to the reported spending.
 5. **Report the amounts as Arios gives them.** Label the totals with their reporting currency. Each
    individual booked amount keeps its own currency and is not replaced by a reporting value.
    - A row whose `reporting_valuation` has `status` `missing` has no figure in the reporting

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "arios",
-  "version": "0.1.47",
+  "version": "0.1.191",
   "description": "Connect your assistant to your company in Arios. Read accounts and transactions, bring bills in, and prepare a bill payment. The plugin never moves money: a person submits every payment in Arios.",
   "author": {
     "name": "Arios",

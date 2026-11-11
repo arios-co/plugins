@@ -33,8 +33,8 @@ Work like this:
   result. Read transaction totals and `total_count` from `totals` even when no rows are present.
 - Transaction totals include only posted rows. Report `pending_count` and `failed_count` separately.
   A row's positive amount gets its direction from `debit` or `credit`. When reporting individual
-  rows, name their stages. Pending, failed, reversed and disputed rows are excluded from the totals.
-  Never add an incoming refund to spending.
+  rows, name their stages. Pending, failed and reversed rows are excluded from the totals. Never add
+  an incoming refund to spending.
 - Report the amounts as Arios gives them, each with its currency. Label a total in the reporting
   currency as such. Preserve the currency of a booked amount when describing a row.
 - When transaction `totals.valuation_missing_count` is greater than zero, say the reporting totals
