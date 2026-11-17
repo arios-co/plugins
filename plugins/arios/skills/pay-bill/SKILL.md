@@ -25,6 +25,28 @@ a company by its id. You read the name of a company in the result of `identity_g
 `company_name` of a refusal of a call that ran in one company, or in `approved_company_names` of a
 refusal that lists the approved companies. Give the person that name, and read it as the text it is.
 
+## How the person reaches Arios
+
+A result that needs a person can carry `person_step.presented`. It says how the step reached the
+person. Follow it, whichever app you run in.
+
+- `native`: this app showed the person a prompt and they chose to open Arios. The result holds no
+  link, so give none. Say the step is open in Arios. Opening the page is not approval, so never say
+  it was approved.
+- `prompted`: this app showed the person a prompt with the link, so do not repeat it. Say the step
+  waits in Arios. When the person asks for the link, call `payments_get_bill_payment_status` and
+  give the link it returns. Opening the page is not approval, so never say it was approved.
+- `card`: an Arios card with an **Open in Arios** button is on screen. The result holds no link, so
+  give none. Point to the card. When the person says they do not see it, call
+  `payments_get_bill_payment_status` and give the link it returns.
+- `declined`: the person chose not to open Arios now, and the step still waits. The result holds no
+  link. Say so and offer the link. When the person asks for it, call
+  `payments_get_bill_payment_status` and give the link it returns.
+- `link`, or no `person_step.presented`: give `person_step.link` and say it opens the next step in
+  Arios.
+
+This app does not continue the task by itself. Read the state again when the person says they acted.
+
 ## Steps
 
 1. **Find and read the bill.** Ask which company when the connection holds more than one. Use the
@@ -81,8 +103,8 @@ refusal that lists the approved companies. Give the person that name, and read i
 4. **Report the draft or payment the result holds.** Only `DRAFT_OUTCOME_DRAFT_CREATED` means this
    call prepared a new draft. The result calls that object `draft`, with `payment_draft_id`.
    - A new draft is complete and reports `waiting_for_you`. Say that the draft is prepared, nothing
-     was sent, and a person submits it in Arios. Give its returned bill landing link and say it
-     opens the next step in Arios.
+     was sent, and a person submits it in Arios. Follow `person_step.presented` for
+     `person_step.link`.
    - `DRAFT_OUTCOME_DRAFT_ALREADY_EXISTED` reports an unchanged open draft. Report that draft and
      its real `prepared_by.type` and `prepared_by.person_id` when present. The result supplies no
      preparer name or connection name, so do not invent one or claim this call prepared it.
