@@ -349,6 +349,54 @@ correction, with a new key and the checks of step 7.
     - When the bill is ready with a linked supplier, say which supplier Arios matched. You did not
       choose it. Never say a bill was paid.
 
+## Refusals
+
+A payables refusal states a fact and carries a `reason`. These rules say what to do next. "What a
+refusal means" in connect-arios covers the refusals of the connection. The steps above win where
+they say more.
+
+- `BILL_EXTRACTION_NOT_FOUND` that says no extraction with that id exists: call
+  `payables_get_bill_extraction` with the bill id to read the id of its newest extraction. Use that
+  id.
+- `BILL_EXTRACTION_NOT_FOUND` that says the bill has no extraction yet: when you uploaded the
+  invoice, or a person added it in Arios, read the extraction again as step 6 says, up to five
+  times. Then report the bill's link. When no invoice was uploaded, attach it first as step 5 says.
+- `BILL_EXTRACTION_RUNNING`: Arios is still reading the document. Read the extraction as step 6 says
+  until it is no longer pending, then make the refused call again.
+- `BILL_HAS_NO_DOCUMENT`: attach the invoice first as step 5 says. When you do not hold it, report
+  the bill's link so the person adds it in Arios.
+- `BILL_EXTRACTION_NOT_ACTIONABLE` that says the extraction changed during the call,
+  `BILL_OWNER_PROJECTION_NOT_READY`, `PAYMENT_SERVICE_UNAVAILABLE` or `STORAGE_UNAVAILABLE`: make
+  the same call once more, with the same arguments and the same `idempotency_key`. When it fails
+  again, say Arios could not do it now, report the bill's link when you have it, and stop.
+- `BILL_UPDATE_NO_CHANGES`: the update changed nothing. Send a changed editable field, or a clear of
+  an amount or date that the invoice supports. When there is no such change, skip the update.
+- `BILL_UPDATE_SET_AND_CLEAR`: the update set and cleared the same field. Choose one of the two for
+  that field and send the update again with a new key.
+- `INVALID_BILL_CURSOR`: call `payables_list_bills` again without a cursor, with the same company,
+  search and status.
+- `BILL_NOT_ACTIONABLE`, `BILL_PAYMENT_SCHEDULED` or `BILL_PAYMENT_IN_PROGRESS`: the bill cannot
+  change now. It is archived or cancelled, a payment for it is scheduled, or a person is paying it.
+  Report the bill's link and stop. For a scheduled payment, say a person cancels that payment in
+  Arios first.
+- `BILL_UPLOAD_DISABLED` or `DOCUMENT_SERVICE_UNAVAILABLE`: no upload is possible now. Report the
+  bill's link so the person adds the file in Arios, and stop.
+- `IDEMPOTENCY_KEY_REUSED`: the key was used for other arguments. Use a new key for new arguments,
+  or repeat the call with the arguments of the first one.
+- `INVALID_DATE_ARGUMENT`: the named date is not in `YYYY-MM-DD` form. When the invoice prints that
+  date so that it reads only one way, send it as `YYYY-MM-DD` with a new key. Otherwise ask the
+  person for the date. Never calculate a date, and never guess the order of day, month and year.
+- `INVALID_BILL`: an amount has no currency, or a value cannot be read. Ask the person for the
+  missing fact, such as the currency of the amount. Never choose a currency yourself.
+- `BILL_FIELD_NOT_ACCEPTABLE` that says the call names no field: accept nothing, and submit the bill
+  as step 9 says. When it says a named field is not one the tool lists, name only the fields step 8
+  lists. When it says the amount and its currency are one fact, name both or neither, as step 8
+  says.
+- `BILL_UPLOAD_CONTENT_TYPE_NOT_ALLOWED`: this company's bills do not accept the file type, and the
+  refusal lists the types they accept. Name those types, ask the person for the invoice in one of
+  them, and give the bill's link. Never request an upload under a content type the file does not
+  have.
+
 ## How the person reaches Arios
 
 A result that needs a person can carry `person_step.presented`. It says how the step reached the

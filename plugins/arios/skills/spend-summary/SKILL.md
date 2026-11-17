@@ -84,3 +84,24 @@ A refusal that says the person cannot share a scope in the company is not fixed 
    - Account numbers come back masked. Repeat the masked form. Never reconstruct a full IBAN.
    - There is no tool here that moves money between accounts. When the person asks for that, say so,
      and say a person does it in Arios.
+
+## Refusals
+
+An account refusal states a fact and carries a `reason`. These rules say what to do next. "What a
+refusal means" in connect-arios covers the refusals of the connection.
+
+- `ACCOUNT_NOT_FOUND` or `TRANSACTION_NOT_FOUND`: no account or transaction with that id exists in
+  this company. Call `account_list_accounts` or `account_list_transactions` to read the ids the
+  company holds, and use one of them. Never invent an id.
+- `INVALID_REPORTING_CURRENCY`: Arios does not value money in that currency. Use an ISO 4217 code,
+  for example `EUR`.
+- `REPORTING_CURRENCY_UNKNOWN`: repeat the call with an explicit `reporting_currency` from the
+  person's request. If the person named no currency, ask which currency to use. Never guess the
+  company's reporting currency.
+- `INVALID_DATE_ARGUMENT` that says a date is not in `YYYY-MM-DD` form: write `from` and `to` as
+  `YYYY-MM-DD` yourself, from the dates the person gave, and call again. Ask the person only when a
+  date reads two ways.
+- `INVALID_DATE_ARGUMENT` that says `from` is not before `to`: set `from` before `to`. The range
+  includes `from` and excludes `to`, so the range of one day ends on the next day.
+- A call that times out: make the same call once more. When it fails again, say Arios could not
+  answer now and stop.

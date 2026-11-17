@@ -215,6 +215,41 @@ A refusal that says the person cannot share a scope in the company is not fixed 
    opens the next step in Arios.
    - `BILL_PAYMENT_NOT_FOUND` means Arios holds neither a draft nor a payment for the bill. Report
      that answer with no link. Do not invent a payment state or prepare a draft from a status-only
-     request.
+     request. When the person asked to get the payment ready and the bill is ready to pay, prepare
+     the draft as step 2 says.
    - A draft or a payment that waits for a person is not read in a loop. Wait for it as
      [Wait for the person](#wait-for-the-person) says.
+
+## Refusals
+
+A payments refusal states a fact and carries a `reason`. These rules say what to do next. "What a
+refusal means" in connect-arios covers the refusals of the connection.
+
+- `BILL_READ_NOT_PERMITTED` or `ACCOUNT_READ_NOT_PERMITTED`: the connection cannot read the bills or
+  the accounts of this company. Handle it as the permission refusal of step 3 says. Tell the person
+  which permission and which scope it needs, and do not repeat the call.
+- `SOURCE_ACCOUNT_NOT_FOUND`: no account with that id exists in this company. Call
+  `account_list_accounts` to read the ids the company holds, and use the id of the account the
+  person named. When no account matches, tell the person, and leave `source_account_id` out only
+  when they agree. A changed argument needs a new key.
+- `REPORTING_CURRENCY_UNKNOWN` from an account read: repeat that read with an explicit
+  `reporting_currency` from the person's request. If the person named no reporting currency, ask
+  which currency to use. Never guess the company's reporting currency.
+- `SOURCE_ACCOUNT_NOT_USABLE` or `SOURCE_ACCOUNT_CURRENCY_MISMATCH`: no payment can leave from that
+  account. Ask the person for an active account in the bill's currency, or leave `source_account_id`
+  out when they agree. A changed argument needs a new key.
+- `BILL_NOT_PAYABLE`: Arios cannot prepare a payment from this bill as it stands. Give the bill's
+  link when a result carries it, and say a person opens the bill in Arios. Prepare nothing else.
+- `BILL_PAYMENT_IN_PROGRESS`: a payment of this bill is being prepared at this moment, or a person
+  is paying it. Call `payments_get_bill_payment_status` once and report what Arios holds for the
+  bill.
+- `BILL_PAYMENT_SCHEDULED`: a payment for this bill is already scheduled in Arios. Report the bill's
+  link and stop.
+- `PAYABLES_SERVICE_UNAVAILABLE` or `ACCOUNT_SERVICE_UNAVAILABLE`: make the same call once more,
+  with the same arguments and the same `idempotency_key`. When it fails again, say Arios could not
+  prepare it now and stop.
+- `STORAGE_UNAVAILABLE` on a bill read: Arios could not read the bill now. Read it once more. When
+  it fails again, say Arios could not read the bill now, ask the person to try again in a moment,
+  and stop. Report no state of the bill, and prepare no draft.
+- `IDEMPOTENCY_KEY_REUSED`: the key was used for other arguments. Use a new key for new arguments,
+  or repeat the call with the arguments of the first one.

@@ -66,5 +66,19 @@ Work like this:
 - A call that answers `scope_not_consented`, or an HTTP 403 error that names `insufficient_scope`,
   read nothing. Tell the caller which scopes and which company it needs, and stop. The caller asks
   the person for the approval. Never ask for a token or a code.
+- An account or transaction refusal that says no account or transaction with that id exists in the
+  company: call `account_list_accounts` or `account_list_transactions` to read the ids the company
+  holds, and use one of them. Never invent an id.
+- A refusal that says `reporting_currency` is not a currency Arios values money in: use an ISO 4217
+  code, for example `EUR`.
+- `REPORTING_CURRENCY_UNKNOWN`: repeat the call with an explicit `reporting_currency` supplied by
+  the caller. If the caller supplied no currency, say which company needs a currency choice and
+  stop. The caller asks the person which currency to use. Never guess the company's reporting
+  currency.
+- A refusal that says a date is not in `YYYY-MM-DD` form: write `from` and `to` as `YYYY-MM-DD`
+  yourself and call again. A refusal that says `from` is not before `to`: set `from` before `to`.
+  The range includes `from` and excludes `to`.
+- A call that times out: make the same call once more. When it fails again, tell the caller Arios
+  could not answer now and stop.
 - When a question needs something created, changed or paid, say which skill does it and stop. You
   have no tool for it.
