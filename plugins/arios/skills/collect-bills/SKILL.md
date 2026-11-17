@@ -1,6 +1,12 @@
 ---
 name: collect-bills
 description: Bring an invoice into Arios as a bill. Use when the person wants to add, collect or catch up on invoices and bills in Arios. No money moves.
+hooks:
+  Stop:
+    - hooks:
+        - type: command
+          command: 'sh "${CLAUDE_PLUGIN_ROOT}/hooks/step-link.sh"'
+          timeout: 10
 ---
 
 # Collect bills
@@ -333,9 +339,9 @@ correction, with a new key and the checks of step 7.
    - When it says the extraction changed during the call, call it again with the same key.
    - Make no correction after the submit unless the person asks for one.
 10. **Report the state and next step.** A ready bill says `prepared`. `waiting_for_you` says a
-    person must act. Follow `person_step.presented` for `person_step.link`, as the section below
-    says. A result with no `person_step.presented` and a link: show it and say it opens the next
-    step in Arios.
+    person must act. Follow `person_step.presented` for the link, as the section below says. A
+    result with no `person_step.presented` and a link: show it and say it opens the next step in
+    Arios. Then wait, as [Wait for the person](#wait-for-the-person) says.
     - A possible duplicate, supplier confirmation, sender review and missing bank details stay for a
       person. Say which one is still needed. No agent write clears a duplicate warning.
     - When a date cannot be corrected from an explicit invoice date, say that a person enters it in
@@ -363,7 +369,40 @@ person. Follow it, whichever app you run in.
 - `link`, or no `person_step.presented`: give `person_step.link` and say it opens the next step in
   Arios.
 
-This app does not continue the task by itself. Read the state again when the person says they acted.
+## Wait for the person
+
+Wait after the submit of step 9 when its result says `waiting_for_you`. A correction or an accept
+never starts the wait. First give the step to the person as the section above says, so they can act
+while you wait.
+
+When `presented` is `link`, or the result has no `presented`, your reply must hold the result's full
+`link` before you call the read. Copy it as it is. The person has no other way to open the step, and
+a long wait can end your turn before you write again.
+
+Do not wait when `presented` is `declined`, or when the person said they will act later. Report the
+step and stop. Read the state when they come back.
+
+To wait, call `payables_get_bill` with the bill and `wait_for_person: true`.
+
+- **The call moves to the background.** End your turn with one message that gives the result's link
+  as a Markdown link, says it opens their step in Arios, and says you will go on when they act. The
+  result reaches you by itself. Give no link after `native` or `card`.
+- **The result still says `waiting_for_you` and nothing changed.** Call again the same way, up to 12
+  calls in total.
+- **The call fails.** Try it once more after a short pause. A second failure is not an outcome: say
+  you could not read the state, and that the step may still wait in Arios.
+- **The result changed and still says `waiting_for_you`.** Say what the bill now waits for, and wait
+  again the same way. The 12 calls are for the whole task.
+- **The result no longer says `waiting_for_you`.** Report the bill's new state and what it needs
+  next.
+- **After 12 calls.** Say the step still waits in Arios, and stop. Read the state on the person's
+  next message. They do not have to say they approved.
+
+A read returns the link, but `presented` still decides: after `native`, `prompted` or `card`, give
+no link unless the person asks for it.
+
+Go on to a later step only when the person's request asked for it and the result allows it. A bill
+that is ready does not by itself mean the person wants it paid.
 
 ## The question in step 3
 

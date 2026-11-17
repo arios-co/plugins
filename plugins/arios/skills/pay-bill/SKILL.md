@@ -1,6 +1,12 @@
 ---
 name: pay-bill
 description: Prepare the payment of a bill in Arios that is ready to pay. Use when the person wants to pay a bill, settle an invoice or get a payment ready. A person submits the payment in Arios.
+hooks:
+  Stop:
+    - hooks:
+        - type: command
+          command: 'sh "${CLAUDE_PLUGIN_ROOT}/hooks/step-link.sh"'
+          timeout: 10
 ---
 
 # Pay bill
@@ -45,7 +51,62 @@ person. Follow it, whichever app you run in.
 - `link`, or no `person_step.presented`: give `person_step.link` and say it opens the next step in
   Arios.
 
-This app does not continue the task by itself. Read the state again when the person says they acted.
+## Wait for the person
+
+Wait after a result that says `waiting_for_you` and holds a `draft` or a `payment`. First give the
+step to the person as the section above says, so they can act while you wait.
+
+When `presented` is `link`, or the result has no `presented`, write the result's full `link` as text
+in your reply. Put it in the same message as the read that waits, before that call. Copy it as it
+is. A link that you only plan in your thinking, or put in a tool argument, does not reach the
+person. The read can hold your turn for minutes, and the person has no other way to open the step.
+
+Do not wait when `presented` is `declined`, or when the person said they will act later. Report the
+step and stop. Read the state when they come back.
+
+### When the app can subscribe to Arios events
+
+A result that waits for a person can carry `person_step.continuation_ref`. Some apps, such as
+ChatGPT, can subscribe to an event and start a new turn when it arrives. When this app lets you
+subscribe to the event `arios.person_step.changed.v1`, subscribe instead of waiting with reads:
+
+1. Give the step to the person first, as
+   [How the person reaches Arios](#how-the-person-reaches-arios) says.
+2. Subscribe with the arguments `{"continuation_ref": "<the value from the result>"}`. Copy the
+   value as it is. The app supplies the webhook. Never ask the person for a URL or a secret.
+3. When the subscription succeeds, end your turn. Say you will go on when the step changes in Arios.
+   Do not also call the read with `wait_for_person`.
+4. When the subscription fails, or the app cannot subscribe, wait as
+   [Wait with reads](#wait-with-reads) says.
+5. When the event arrives, call `payments_get_bill_payment_status` with the bill before you report
+   anything. The event says only that the step ended. It never means the payment was approved or
+   sent. Report the typed state of that result, as "Did it go through?" in the steps says.
+6. When that result waits for a person again, subscribe again with its new
+   `person_step.continuation_ref`.
+
+### Wait with reads
+
+To wait, call `payments_get_bill_payment_status` with the bill and `wait_for_person: true`.
+
+- **The call moves to the background, or the app runs it as a task.** End your turn with one message
+  that gives the step's link as a Markdown link, says it opens their step in Arios, and says you
+  will go on when they act. Take the link from the last result that has one. The result reaches you
+  by itself when the person acts. Give no link after `native` or `card`.
+- **The result still says `waiting_for_you` and nothing changed.** Call again the same way, up to 12
+  calls in total.
+- **The call fails.** Try it once more after a short pause. A second failure is not an outcome: say
+  you could not read the state, and that the step may still wait in Arios.
+- **The result changed and still says `waiting_for_you`.** A draft became a payment that waits for
+  an approval. Say what it now waits for, never say it was approved, and wait again the same way.
+  The 12 calls are for the whole task.
+- **The result no longer says `waiting_for_you`.** Follow the typed state, as step 5 says.
+- **After 12 calls.** Say the step still waits in Arios, and stop. Read the state on the person's
+  next message. They do not have to say they approved.
+
+A read returns the link, but `presented` still decides: after `native`, `prompted` or `card`, give
+no link unless the person asks for it.
+
+Go on to a later step only when the person's request asked for it and the result allows it.
 
 ## A call needs more access
 
@@ -133,8 +194,8 @@ A refusal that says the person cannot share a scope in the company is not fixed 
 4. **Report the draft or payment the result holds.** Only `DRAFT_OUTCOME_DRAFT_CREATED` means this
    call prepared a new draft. The result calls that object `draft`, with `payment_draft_id`.
    - A new draft is complete and reports `waiting_for_you`. Say that the draft is prepared, nothing
-     was sent, and a person submits it in Arios. Follow `person_step.presented` for
-     `person_step.link`.
+     was sent, and a person submits it in Arios. Follow `person_step.presented` for the link, then
+     wait as [Wait for the person](#wait-for-the-person) says.
    - `DRAFT_OUTCOME_DRAFT_ALREADY_EXISTED` reports an unchanged open draft. Report that draft and
      its real `prepared_by.type` and `prepared_by.person_id` when present. The result supplies no
      preparer name or connection name, so do not invent one or claim this call prepared it.
@@ -155,5 +216,5 @@ A refusal that says the person cannot share a scope in the company is not fixed 
    - `BILL_PAYMENT_NOT_FOUND` means Arios holds neither a draft nor a payment for the bill. Report
      that answer with no link. Do not invent a payment state or prepare a draft from a status-only
      request.
-   - A draft or a payment that waits for a person is not read again and again. Report the link, and
-     read the state again when the person says they acted.
+   - A draft or a payment that waits for a person is not read in a loop. Wait for it as
+     [Wait for the person](#wait-for-the-person) says.
