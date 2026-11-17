@@ -88,12 +88,13 @@ END {
   gsub(/]/, " ", message)
   hex = "[0-9a-fA-F]"
   id = repeat(hex, 8) "-" repeat(hex, 4) "-" repeat(hex, 4) "-" repeat(hex, 4) "-" repeat(hex, 12)
-  landing = "^https?://[^/?#@ ]+/bills/" id "[?]company=" id "$"
+  site = "^https?://[^/?#@ ]+"
+  query = "[?]company=" id "$"
   while (match(message, /https?:\/\/[^ \t\r\n]+/)) {
     link = substr(message, RSTART, RLENGTH)
     message = substr(message, RSTART + RLENGTH)
     sub(/[.,;:!?]+$/, "", link)
-    if (link ~ landing) exit
+    if (link ~ (site "/bills/" id query) || link ~ (site "/onboarding/continue" query)) exit
   }
   printf "%s\n", "{\"decision\":\"block\",\"reason\":\"The person cannot act without the link. Give the person the link of their step from the last Arios result that has one, as a Markdown link. Say it opens their step in Arios, then end your turn. If no Arios result gave a link, end your turn.\"}"
 }
