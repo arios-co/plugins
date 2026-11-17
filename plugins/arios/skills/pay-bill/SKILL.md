@@ -47,6 +47,35 @@ person. Follow it, whichever app you run in.
 
 This app does not continue the task by itself. Read the state again when the person says they acted.
 
+## A call needs more access
+
+Make each call as the steps say, also when you think a scope is missing. Do not read the connection
+first to decide whether to call. A client that can ask for more access does so only when a call is
+refused.
+
+A call that answers `scope_not_consented`, or an error that names `insufficient_scope` or says
+"Insufficient scope", did nothing. The connection lacks a scope the call needs. Preparing a payment
+needs `account.read`, `payables.intake` and `payments.prepare`. When the client opens the Arios
+approval by itself, let it finish and carry on when the call succeeds. Otherwise follow "A call
+needs more access" in the connect-arios skill:
+
+- Name the missing scopes and the company. Give the one connect step that connect-arios gives for
+  the client you run in, and ask for every scope the whole request needs. Ask the person to say when
+  they approved. Never ask for a token or a code.
+- Keep the call's arguments and its `idempotency_key`.
+- When the person says to continue, call `identity_get_connection` again. Repeat the call once, with
+  the same arguments and key, only when it shows every missing scope approved for the company.
+- In Codex, an `approval_expires_at` that did not change since the read before the connect step
+  means this session still uses its old access. Say that the session needs a resume to use the new
+  access, with `codex resume` or a new Codex session. Do not say that the approval left out a scope.
+- When a scope is still missing, say the new approval did not include it and that the person can do
+  this work in Arios. Do not give another connect step.
+
+When the person declines or cancels the approval, say that nothing was done and stop. Do not say how
+to approve it later unless they ask.
+
+A refusal that says the person cannot share a scope in the company is not fixed by connecting again.
+
 ## Steps
 
 1. **Find and read the bill.** Ask which company when the connection holds more than one. Use the
@@ -92,6 +121,7 @@ This app does not continue the task by itself. Read the state again when the per
    - `DRAFT_OUTCOME_SEVERAL_USABLE_SOURCE_ACCOUNTS`: several accounts are usable in the bill's
      currency. A person chooses the source account in Arios. Do not guess one or retry preparation
      yourself.
+   - A scope refusal is handled as "A call needs more access" says.
    - A permission refusal is a tool error. Name the permission, scope and company from the refusal.
      Call `identity_get_connection` after that refusal to read which scopes are approved and usable
      in the company. Say which scope is missing and which approval or permission is needed. A scope

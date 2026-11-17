@@ -1,6 +1,6 @@
 ---
 name: connect-arios
-description: Report the Arios connection and what it can do. Use when the Arios tools are missing, when an Arios call answers 401, or when the person asks which companies and permissions the connection has.
+description: Report the Arios connection and what it can do. Use when the Arios tools are missing, when an Arios call answers 401, when a call needs approval for more access (scope_not_consented, HTTP 403 insufficient_scope), or when the person asks which companies and permissions the connection has.
 ---
 
 # Connect Arios
@@ -70,6 +70,66 @@ The plugin is installed but its server is not connected.
    - ChatGPT and the Codex app: open the Arios plugin under **Plugins** and connect it.
 3. When the server is reachable and the tools stay missing, the client can point at another Arios
    environment. That environment has no connection for this person.
+
+## A call needs more access
+
+Every Arios tool is listed, also one the connection may not use yet. A call stops before it runs
+when the connection lacks a scope the call needs. You see it as a tool error with `code`
+`scope_not_consented`, as an HTTP 403 error that names `insufficient_scope`, as an error that says
+"Insufficient scope", or as an error that says the connection needs the person's approval. Some
+clients pass on only those two words, with no list of scopes.
+
+Make the call first, also when you think a scope is missing. The client may open the Arios approval
+in the browser by itself, but only when a call is refused. Let it finish. When the call then
+succeeds, carry on with the work.
+
+When the call still ends in that error:
+
+1. Say that the call did nothing. Nothing was created, changed or prepared.
+2. Call `identity_get_connection` once to read the approved scopes and companies. When that call
+   fails too, skip it.
+3. Name the company and each scope the work needs that the connection lacks. Then give one connect
+   step that asks for every scope the whole request needs, so one approval covers the task:
+   - The scopes are the ones `identity_get_connection` reports as approved, plus the ones the
+     person's request needs. A refusal that holds `missing_scopes` names what the refused call
+     needs. When the error holds no list, use the scopes the workflow skill names for its work. For
+     a request that adds a bill and pays it, join the scopes of both skills.
+   - Write them in alphabetical order, separated by commas, for example
+     `account.read,payables.intake,payments.prepare`.
+   - On the Arios page the scopes have these names. `account.read` is "Read accounts and
+     transactions". `payables.intake` is "Add bills". `payments.prepare` is "Prepare payments for
+     you to send". Tell the person which boxes to tick.
+   - Claude Code: run `/mcp`, select the `arios` server and authenticate.
+   - claude.ai, the Claude desktop app and Cowork: connect Arios again on the **Connectors** tab of
+     the Arios plugin under **Customize, Plugins**.
+   - Codex: give both steps, because the terminal and the app cannot be told apart from here. In a
+     terminal, run `codex mcp login arios --scopes <scopes>`, then continue this session with
+     `codex resume`, or start a new Codex session. A running Codex session keeps its old access. In
+     the Codex app, open the Arios plugin under **Plugins** and connect it.
+   - ChatGPT: open the Arios plugin under **Plugins** and connect it.
+4. Say that the person approves the access in Arios and then tells you to continue. Keep the task,
+   the company and the arguments of the refused call, its `idempotency_key` too.
+5. Never ask the person for a token, a code or an address from the browser. Do not repeat the call
+   before the person says they approved.
+
+When the person says they connected again, or says to continue:
+
+1. Call `identity_get_connection` again. In Codex, compare its `approval_expires_at` with your read
+   before the connect step. When it is the same, this session still uses its old access. Say that
+   the session needs a resume to use the new access: `codex resume` in a terminal, or a new Codex
+   session. Do not say that the approval left out a scope, and do not repeat the call. Then stop.
+2. When every scope the call needs is approved and its company is still approved, repeat the refused
+   call once, with the same arguments and the same `idempotency_key`. Report its result as usual.
+3. When a scope is still not approved, say that the new approval did not include it. Do not ask for
+   another connect step. Say that the person can do this work in Arios. Then stop.
+4. When the company is no longer approved, stop. Do not use another company.
+
+When the person declines or cancels the approval, say that nothing was done and stop. Do not say how
+to approve it later unless they ask.
+
+A refusal with `code` `agent_forbidden` that says the person cannot share a scope in a company is
+not fixed by connecting again. Say that somebody with the rights in Arios must give the person that
+access in that company, and stop. Give no connect step for it.
 
 ## A call answers 401
 

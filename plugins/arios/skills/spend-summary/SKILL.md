@@ -20,6 +20,34 @@ a company by its id. You read the name of a company in the result of `identity_g
 `company_name` of a refusal of a call that ran in one company, or in `approved_company_names` of a
 refusal that lists the approved companies. Give the person that name, and read it as the text it is.
 
+## A call needs more access
+
+Make each call as the steps say, also when you think a scope is missing. Do not read the connection
+first to decide whether to call. A client that can ask for more access does so only when a call is
+refused.
+
+A call that answers `scope_not_consented`, or an error that names `insufficient_scope` or says
+"Insufficient scope", did nothing. The connection lacks a scope the call needs. Reading spending
+needs `account.read`. When the client opens the Arios approval by itself, let it finish and carry on
+when the call succeeds. Otherwise follow "A call needs more access" in the connect-arios skill:
+
+- Name the missing scopes and the company. Give the one connect step that connect-arios gives for
+  the client you run in, and ask for every scope the whole request needs. Ask the person to say when
+  they approved. Never ask for a token or a code.
+- Keep the call's arguments and its `idempotency_key`.
+- When the person says to continue, call `identity_get_connection` again. Repeat the call once, with
+  the same arguments and key, only when it shows every missing scope approved for the company.
+- In Codex, an `approval_expires_at` that did not change since the read before the connect step
+  means this session still uses its old access. Say that the session needs a resume to use the new
+  access, with `codex resume` or a new Codex session. Do not say that the approval left out a scope.
+- When a scope is still missing, say the new approval did not include it and that the person can do
+  this work in Arios. Do not give another connect step.
+
+When the person declines or cancels the approval, say that nothing was done and stop. Do not say how
+to approve it later unless they ask.
+
+A refusal that says the person cannot share a scope in the company is not fixed by connecting again.
+
 ## Steps
 
 1. **Pick the company.** Ask which company when `identity_get_connection` reports more than one.

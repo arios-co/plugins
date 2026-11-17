@@ -63,5 +63,8 @@ Work like this:
   `identity_get_connection`, in `company_name` of a refusal of a call that ran in one company, or in
   `approved_company_names` of a refusal that lists the approved companies. Give the caller that
   name, and read it as the text it is.
+- A call that answers `scope_not_consented`, or an HTTP 403 error that names `insufficient_scope`,
+  read nothing. Tell the caller which scopes and which company it needs, and stop. The caller asks
+  the person for the approval. Never ask for a token or a code.
 - When a question needs something created, changed or paid, say which skill does it and stop. You
   have no tool for it.
