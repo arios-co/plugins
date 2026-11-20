@@ -62,10 +62,10 @@ A refusal that says the person cannot share a scope in the company is not fixed 
 
 Follow the bill's typed status, its extraction status and its display word to choose a step. Do not
 choose a step or read again because of the bill's `settled` value. A ready bill still says
-`prepared` while an extraction can change it, and its `settled` value is `false`. An optional
-correction alone does not make a ready bill unsettled. Every bill, extraction, draft or payment link
-you show comes from a tool result. It is the bill landing link and opens the current next step in
-Arios. Build no link yourself.
+`prepared` while extraction is running, and its `settled` value is `false`. An optional correction
+alone does not make a ready bill unsettled. Every bill, extraction, draft or payment link you show
+comes from a tool result. It is the bill landing link and opens the current next step in Arios.
+Build no link yourself.
 
 **Recover an interrupted update before choosing an intake step.** When the answer to a
 `payables_update_bill` call was lost and its key and complete arguments are known, send that same
@@ -76,7 +76,7 @@ its current-state checks. If the first call never committed, Arios applies its o
 Report the returned stored `changes`. A replay does not make a new correction or undo later changes.
 Its bill is the snapshot at the original commit, so do not present it as a newer live state or
 replace a later known archived state with its old `prepared` word. Changed arguments are a new
-correction, with a new key and the checks of step 7.
+correction, with a new key and the checks of step 8.
 
 1. **Find the invoice.** Get the PDF the person points at: a path, an attachment, or a file they
    name. Read enough of it to find the supplier, the invoice number and the amount. Keep the printed
@@ -105,18 +105,16 @@ correction, with a new key and the checks of step 7.
      result. Follow its cursor if it holds one. Go on to step 3 only after both searches have ended
      for every status above and no matching invoice was found.
    - **When the search finds the invoice on an archived or cancelled bill,** report that bill's
-     typed status and link, and stop. Create no bill, upload no document and accept no extraction.
-     Do not offer to create another bill for the same invoice. A person handles any correction in
-     Arios.
+     typed status and link, and stop. Create no bill and upload no document. Do not offer to create
+     another bill for the same invoice. A person handles any correction in Arios.
    - **When you find another bill of the invoice, create nothing and go on with that bill.** An
      intake that stopped halfway is finished from the state of that bill. Read it with
-     `payables_get_bill` and continue at the upload, the extraction read or the accept that its
-     state needs, then compare it with the invoice, correct wrong or missing editable values and
-     submit it in step 9. An accepted extraction or a display word alone does not finish that
-     comparison. Take the first line that fits:
+     `payables_get_bill` and continue at the upload or extraction read that its state needs, then
+     compare the stored bill with the invoice and correct wrong or missing editable values. A
+     completed extraction or a display word alone does not finish that comparison. Take the first
+     line that fits:
      - **The bill is `BILL_STATUS_ARCHIVED` or `BILL_STATUS_CANCELLED`:** report that status and the
-       bill's link, and stop. The bill cannot change, so do not upload a document or accept an
-       extraction on it.
+       bill's link, and stop. The bill cannot change, so do not upload a document on it.
      - **The bill holds no document and you hold it:** `has_document` is `false` or absent, because
        a result leaves a false flag out. Go to step 5 and call `payables_request_bill_upload` for
        that bill before reporting its link. Request the upload address even when this client has no
@@ -125,20 +123,18 @@ correction, with a new key and the checks of step 7.
        to add the PDF in Arios, and stop.
      - **The bill's extraction is `EXTRACTION_STATUS_PENDING`:** it is still running, so the bill is
        `settled: false`, even when it is ready to pay and says `prepared`. Go to step 6 before
-       following the display word. The extraction can still produce values to accept.
+       following the display word. The extraction may still change the bill.
      - **The document is on the bill and no extraction is reported:** go to step 6. Arios may not
        have started reading the uploaded document yet.
-     - **The bill's extraction is `EXTRACTION_STATUS_SUCCEEDED`:** go to step 6 to read its fields
-       and check which stored values are correct and acceptable. A bill that says `prepared` or
-       `waiting_for_you` still needs this check.
-     - **The bill's extraction is `EXTRACTION_STATUS_ACCEPTED`:** go to step 7 and compare the bill
-       with the invoice. Do not upload it again or accept the same extraction again.
-     - **No display word:** the bill was not submitted yet, or Arios is reading the document. Go to
-       step 6.
-     - **`prepared` with no unfinished extraction:** go to step 7 for the invoice comparison.
-     - **`waiting_for_you` and the document is on the bill:** go to step 7, then submit the bill in
-       step 9 before reporting the person's next step. Optional invoice corrections are still
-       allowed.
+     - **The bill's extraction is `EXTRACTION_STATUS_SUCCEEDED`:** go to step 6 to read its fields,
+       then go to step 7 and read the resulting bill. A bill that says `prepared` or
+       `waiting_for_you` still needs an invoice comparison.
+     - **No display word and no unfinished extraction:** the bill is not handed over yet. Go to step
+       7, then submit it in step 9.
+     - **`prepared` with no unfinished extraction:** go to step 8 for the invoice comparison.
+     - **`waiting_for_you` and the document is on the bill:** the bill was submitted already. Go to
+       step 8 before reporting the person's next step. Optional invoice corrections are still
+       allowed, and a correction needs a new submit.
 3. **Ask before you create a bill from values you read yourself.** This applies when you typed the
    values off the invoice and Arios has not read the document yet. Show the supplier name, the payee
    email and the amount, and wait for a yes.
@@ -146,8 +142,8 @@ correction, with a new key and the checks of step 7.
      bill goes to.
    - On anything other than a yes, create nothing and say so.
    - An upload-path create with no model-read payee name, payee email or amount needs no question.
-     Step 7 can correct invoice facts and step 8 accepts correct stored values without another
-     question. The question before a typed-value create still applies.
+     Arios applies extracted values automatically and step 8 can correct invoice facts without
+     another question. The question before a typed-value create still applies.
 4. **Create the bill.** Call `payables_create_bill` with the confirmed fields and a fresh
    `idempotency_key`. Use the same key again on a retry of the same invoice in this chat. Include
    `payment_reference` when the invoice prints one. Never invent a reference.
@@ -170,82 +166,42 @@ correction, with a new key and the checks of step 7.
    - When the upload cannot run, for example because this client has no shell, report the bill's
      link and ask the person to add the PDF in Arios. Do not claim the file is attached, and do not
      retry in silence.
-   - A bill with no document carries no display word, because sending the file is still your step.
-6. **Read the extraction.** Arios reads the document by itself. Call `payables_get_bill_extraction`
-   and follow the typed extraction status, whatever display word the bill carries. `settled: false`
-   alone is not a reason to read again. Read again only while the extraction is still running or has
-   not started after an upload:
-   - **Wait before every repeat.** Wait at least 5 seconds between two extraction reads for the same
-     bill. When a shell is available, run `sleep 5` and wait for it to finish before the next read.
-     Do not run the wait and the read in parallel. When this client cannot wait, say that Arios is
-     still reading the invoice, give the bill's link and stop.
-   - **Read at most 12 times.** Count the first extraction read and every repeat for this bill
-     during this intake, including reads before the extraction started. Do not reset the count when
-     the status changes. If the extraction is still running after the twelfth read, say so, give the
-     bill's link and stop. Do not send the file again, accept a running extraction or submit the
-     bill.
-   - **When `payables_get_bill_extraction` is not in your tool list,** this connection may bring a
-     bill in and may not read the bills of the company. Stop after the upload. Report the bill's
-     link, and say that Arios reads the document and that a person reviews the values in Arios. Do
-     not go on to step 8 or step 9, because the accept and the submit need the extraction that only
-     this read reports.
-   - **The answer that the bill has no extraction yet, after the upload line ran or after a person
-     added the file in Arios:** Arios has not started to read the file. Call
-     `payables_get_bill_extraction` again. After five calls with this answer, stop and report the
-     bill's link. Follow the extraction read here, not a bill read. Do not send the file again, and
-     never say the upload failed because of this answer.
-   - **The extraction is `EXTRACTION_STATUS_PENDING`:** it is `settled: false`. Say that extraction
-     is running, so the person is not left in silence. Wait as above before reading again, and
-     follow the twelve-read limit. Do not send the file again.
-   - **`EXTRACTION_STATUS_SUCCEEDED`:** compare the stored values with the invoice, then check
-     whether at least one correct stored value is acceptable. A value counts only when all of these
-     hold:
-     - Its field is one of the fields allowed in step 8, and is not in `accepted_fields` already.
-       Bank fields never count.
-     - Its stored value is not empty and agrees with the invoice. If the invoice is not available
-       here, ask for it when the comparison needs it. Do not guess a correction from an OCR value.
-     - A payment reference has at most 140 characters. An invoice number has at most 80, a payee
-       name at most 140, and a payee email at most 254.
-     - A date can be read as a date Arios can store. Do not work out a date of your own.
-     - An amount is positive and can be read with its currency as a pair Arios can store. Neither
-       field counts alone.
-
-     **When no correct stored value counts,** go to step 7, skip the accept, and submit the bill in
-     step 9. The submit closes the extraction, so none of its values reaches the bill. Do not call
-     accept with an empty field list or read the extraction again. This also holds when every
-     extracted value is wrong, for bank fields only and for an overlong reference. Step 7 only
-     corrects facts the invoice actually supplies.
-
-     **When at least one correct stored value counts,** go to step 7 for wrong or missing facts,
-     accept those values in step 8, then submit the bill in step 9. If the extracted amount is
-     wrong, accept neither half of its money pair, even when the currency happens to be right.
-   - **`EXTRACTION_STATUS_ACCEPTED`:** go to step 7. Do not accept or poll the finished attempt
-     again. Wrong or missing editable invoice values still need correction.
-   - **A failed or ignored extraction:** go to step 7 when invoice facts are available, then submit
-     the bill in step 9.
-   - **`waiting_for_you`:** this says a person must act. It does not prevent an optional invoice
-     correction. Supplier confirmation, duplicate review, sender review and bank details remain a
-     person's steps.
-
-   When no file reached Arios at all, this rule does not apply. Report the bill's link, as step 5
-   says.
-7. **Compare and correct the stored bill.** Correct wrong or missing editable facts in **one** call
-   to `payables_update_bill`, before any accept in step 8 and the submit in step 9. Neither the
-   update nor the accept asks the person. The submit does, so it comes last. Compare invoice facts,
-   not harmless capitalization, whitespace or equivalent money/date formatting. Do not change
-   display style alone. An accepted extraction is not finished while the invoice establishes a wrong
-   or missing value.
-   - If there are no supplied invoice facts to correct, skip update and go to step 8. Do not read
+   - A bill with no document carries no display word, because sending the file is still your step. A
+     bill you have not submitted carries none either.
+6. **Read the extraction.** Arios reads the document and applies eligible bill fields by itself.
+   Call `payables_get_bill_extraction` and follow its typed status. `settled: false` alone is not a
+   reason to read again.
+   - Wait at least 5 seconds between reads of the same extraction. Read at most 12 times, including
+     the first read. If this client cannot wait, or extraction is still pending after the twelfth
+     read, report that Arios is still reading and give the bill link.
+   - When Arios has no extraction yet after an upload that ran, read again up to five times. Do not
+     resend the file. If none appears, report the bill link.
+   - When `payables_get_bill_extraction` is unavailable, stop after upload and report the link. Say
+     that Arios reads the PDF and a person can review the bill there.
+   - When status is `EXTRACTION_STATUS_PENDING`, wait and read again within the limit.
+   - When status is `EXTRACTION_STATUS_SUCCEEDED`, go to step 7. Bank fields in the PDF do not
+     become saved recipient bank details.
+   - When extraction failed, report the typed state and go to step 7. The work on the bill still
+     ends with the submit of step 9, with or without invoice facts to correct.
+7. **Read the resulting bill.** Call `payables_get_bill` after extraction finishes. Compare its
+   stored values with the invoice. Arios has already applied eligible extracted fields. If the bill
+   is archived or cancelled, report that status and stop. A duplicate, sender review, supplier
+   confirmation and bank details remain person decisions. Continue to step 8 for an invoice fact the
+   bill has wrong or is missing, and to step 9 otherwise.
+8. **Compare and correct the stored bill.** Correct wrong or missing editable facts in **one** call
+   to `payables_update_bill`. Compare invoice facts, not harmless capitalization, whitespace or
+   equivalent money/date formatting. Do not change display style alone. A completed extraction does
+   not finish the task when the invoice establishes a wrong or missing value.
+   - If there are no supplied invoice facts to correct, skip update and go to step 9. Do not read
      the bill just to attempt a correction you cannot ground. Never invent an amount, reference or
      date. If the person asks only for selected fields, leave the others for them.
    - **Every new update requires its own fresh `payables_get_bill` call immediately before it**.
      This gate applies to a new correction, including changed arguments with a new key. An
      interrupted call with its original key and unchanged arguments follows the replay path above.
-     Do not reuse a read from before extraction or acceptance, even when the bill appeared
-     unchanged. The next Arios call after that fresh read must be the update. Compare with that
-     stored bill, not the extraction candidates. Wait for the read result before the write. An
-     archived or cancelled bill stops with its status and link, without an update. Skip a no-change
-     call.
+     Do not reuse a read from before extraction, even when the bill appeared unchanged. The next
+     Arios call after that fresh read must be the update. Compare with that stored bill, not the
+     extraction candidates. Wait for the read result before the write. An archived or cancelled bill
+     stops with its status and link, without an update. Skip a no-change call.
    - Send `bill_id`, a fresh `idempotency_key`, and only changed allowed fields: `payee_name`,
      `payee_contact_name`, `payee_email`, `invoice_number`, `invoice_date`, `due_date`, `amount`,
      `payment_reference` and `notes`. A correction can fill a field extraction did not produce.
@@ -263,85 +219,38 @@ correction, with a new key and the checks of step 7.
      cleared.
    - Report **each entry of the returned `changes`** with its `previous_value` and `new_value`.
      Report null as absent or cleared as appropriate. Do not rebuild changes from OCR values or
-     claim that proposed fields were stored without the returned entries. Corrected fields are
-     separate from `accepted_fields`.
+     claim that proposed fields were stored without the returned entries. Only report changes the
+     update result confirms.
    - Recover an interrupted update through the replay path above, before the fresh-read, no-change
      and terminal-state gates for a new update. A replay reports the stored change list, even after
-     later bill changes or another extraction. Do not re-accept the extraction to work around an
-     update.
+     later bill changes or another extraction. Do not retry extraction to work around an update.
    - If update is refused, report the refusal and the bill landing link from the result or the
-     preceding bill read. Do not work around it through another tool. A scope or permission refusal
-     with no link gets no earlier link and no invented link. Go on to step 8 when a correct stored
-     value still counts, otherwise to step 9, and say at the end that the correction did not
-     succeed.
-8. **Accept the correct values Arios read.** This is your last change to the bill's values. The
-   submit in step 9 comes after it. Never name a field you corrected in step 7, because its stored
-   extraction value would overwrite the correction. Before each accept, including a retry after
-   leaving a refused field out, apply the acceptable-value check of step 6 to the remaining fields.
-   When none is correct and acceptable, go to step 9 without another accept.
-
-   Right before each call to `payables_accept_bill_extraction`, including a retry, read the bill
-   with `payables_get_bill` and check its typed status. Do not reuse an earlier bill read for this
-   check. When the status is `BILL_STATUS_ARCHIVED` or `BILL_STATUS_CANCELLED`, report that status
-   and the bill's link, and stop without an accept.
-
-   Otherwise call `payables_accept_bill_extraction` with the extraction from step 6, a fresh
-   `idempotency_key` and the field names to accept: `BILL_FIELD_AMOUNT`, `BILL_FIELD_CURRENCY`,
-   `BILL_FIELD_INVOICE_NUMBER`, `BILL_FIELD_INVOICE_DATE`, `BILL_FIELD_DUE_DATE`,
-   `BILL_FIELD_PAYMENT_REFERENCE`, `BILL_FIELD_PAYEE_NAME` and `BILL_FIELD_PAYEE_EMAIL`. Name each
-   one only when the extraction produced an acceptable value that agrees with the invoice. Wait for
-   the bill read to finish before calling accept. Do not queue the read and the accept in one
-   parallel batch.
-   - The payment reference is the reference the supplier asks for on the payment. Accept it when the
-     extraction read one, because the payment then carries it.
-   - Name `BILL_FIELD_AMOUNT` and `BILL_FIELD_CURRENCY` only together. The amount and its currency
-     are one fact in Arios, so a call that names one of them alone is refused, and nothing is
-     accepted. When the extraction produced only one of the two, name neither.
-   - Send no values to accept. Arios takes each value from the extraction it stored. Corrections and
-     fields extraction did not produce use `payables_update_bill` in step 7.
-   - Never name `BILL_FIELD_BANK_IBAN` or `BILL_FIELD_BANK_BIC`. A person adds bank details in
-     Arios, and a call that names either one is refused.
-   - **When the accept is refused because the bill cannot change,** report that refusal and the
-     bill's link, and stop. Nothing was accepted. Do not change the field list or retry that
-     refusal, even when the bill read right before it said the bill could change.
-   - **When the call is refused for one field,** the sentence starts with that field, for example
-     `DUE_DATE: Arios could not read the extracted date`. One refused field refuses the whole call,
-     so nothing was accepted yet. If the refusal names `AMOUNT` or `CURRENCY`, leave out both
-     `BILL_FIELD_AMOUNT` and `BILL_FIELD_CURRENCY`. Never retry with half of the money pair. For
-     another field, leave out only that field. Apply the acceptable-value check to what remains.
-     When a value remains acceptable, check the bill's typed status again as above, then call the
-     tool again with a **fresh** `idempotency_key` and the remaining fields. The same key with
-     another field list is refused.
-     - Never send a replacement value to accept. When you have not updated the bill yet, use step 7
-       for a correction grounded in explicit invoice facts before the next accept. Correct an
-       explicit date printed on the invoice, but calculate no date from terms such as "30 days
-       after". If no explicit valid date is supplied, report that a person enters it in Arios.
-     - Each new call leaves out the refused field or the whole money pair. Name at most three such
-       calls. After that, go to step 9 without another accept.
-     - Say at the end which fields Arios took and which one it refused, so the person knows what is
-       left to do in Arios.
-   - **When the result carries no `supplier`,** no supplier is linked to the bill. An accept that
-     changes the payee name or the payee email takes the supplier off a bill that had one, and an
-     accept of yours never puts another one in its place. Say in step 10 that a person confirms the
-     supplier in Arios. A `supplier_suggestion` in the result is not a link, and it names no
-     supplier.
+     preceding bill read, and say that the correction did not succeed. Follow the same-key retry
+     rule below for a temporary failure. Do not retry a refused correction or work around it through
+     another tool. A scope or permission refusal with no link gets no earlier link and no invented
+     link.
+   - Go straight to step 9 after the update, including after a refusal. Let `payables_submit_bill`
+     decide whether Arios can hand the bill over. For a scheduled payment refusal, say that the
+     person cancels the payment first.
 9. **Submit the bill.** Call `payables_submit_bill` with the bill and a fresh `idempotency_key`.
    This is your last call on the bill. It tells Arios that you are done, and it is the one call that
-   can ask the person to open the bill. Arios closes the extraction without taking a value you did
-   not accept. The submit pays nothing and prepares no payment, so never call it a payment step.
-   - Submit after the corrections and the accept, also when you accepted nothing. A bill whose
-     extraction was accepted, failed or ignored comes back as it is.
+   can ask the person to open the bill. It changes no bill value. The submit pays nothing and
+   prepares no payment, so never call it a payment step.
+   - If step 5 ended without an upload or step 6 ended while waiting for extraction, report the
+     bill's link and stop. Otherwise submit, including when there was nothing to correct.
    - When the submit says Arios is still reading the document, read the extraction as step 6 says,
      then submit again.
    - When it says the bill has no document, go to step 5 when you hold the file. Otherwise report
      the bill's link and ask the person to add the PDF in Arios.
-   - When it says the bill cannot change, report that refusal and the bill's link, and stop.
-   - When it says the extraction changed during the call, call it again with the same key.
-   - Make no correction after the submit unless the person asks for one.
-10. **Report the state and next step.** A ready bill says `prepared`. `waiting_for_you` says a
-    person must act. Follow `person_step.presented` for the link, as the section below says. A
-    result with no `person_step.presented` and a link: show it and say it opens the next step in
-    Arios. Then wait, as [Wait for the person](#wait-for-the-person) says.
+   - For any other refusal, report it and stop. Give the returned bill link or the link from the
+     preceding bill read. For a scope or permission refusal, give a link only if it returns one.
+   - Make no correction after the submit unless the person asks for one. A correction after the
+     submit takes the hand-over back, so submit the bill again after it.
+10. **Report the state and next step.** Read the display word from the submit result. A ready bill
+    says `prepared`. `waiting_for_you` says a person must act. Follow `person_step.presented` for
+    the link, as the section below says. A result with no `person_step.presented` and a link: show
+    it and say it opens the next step in Arios. Then wait, as
+    [Wait for the person](#wait-for-the-person) says.
     - A possible duplicate, supplier confirmation, sender review and missing bank details stay for a
       person. Say which one is still needed. No agent write clears a duplicate warning.
     - When a date cannot be corrected from an explicit invoice date, say that a person enters it in
@@ -355,18 +264,14 @@ A payables refusal states a fact and carries a `reason`. These rules say what to
 refusal means" in connect-arios covers the refusals of the connection. The steps above win where
 they say more.
 
-- `BILL_EXTRACTION_NOT_FOUND` that says no extraction with that id exists: call
-  `payables_get_bill_extraction` with the bill id to read the id of its newest extraction. Use that
-  id.
-- `BILL_EXTRACTION_NOT_FOUND` that says the bill has no extraction yet: when you uploaded the
-  invoice, or a person added it in Arios, read the extraction again as step 6 says, up to five
-  times. Then report the bill's link. When no invoice was uploaded, attach it first as step 5 says.
+- `BILL_EXTRACTION_NOT_FOUND`: when you uploaded the invoice, or a person added it in Arios, read
+  the extraction again as step 6 says, up to five times. Then report the bill's link. When no
+  invoice was uploaded, attach it first as step 5 says.
 - `BILL_EXTRACTION_RUNNING`: Arios is still reading the document. Read the extraction as step 6 says
   until it is no longer pending, then make the refused call again.
 - `BILL_HAS_NO_DOCUMENT`: attach the invoice first as step 5 says. When you do not hold it, report
   the bill's link so the person adds it in Arios.
-- `BILL_EXTRACTION_NOT_ACTIONABLE` that says the extraction changed during the call,
-  `BILL_OWNER_PROJECTION_NOT_READY`, `PAYMENT_SERVICE_UNAVAILABLE` or `STORAGE_UNAVAILABLE`: make
+- `BILL_OWNER_PROJECTION_NOT_READY`, `PAYMENT_SERVICE_UNAVAILABLE` or `STORAGE_UNAVAILABLE`: make
   the same call once more, with the same arguments and the same `idempotency_key`. When it fails
   again, say Arios could not do it now, report the bill's link when you have it, and stop.
 - `BILL_UPDATE_NO_CHANGES`: the update changed nothing. Send a changed editable field, or a clear of
@@ -377,8 +282,8 @@ they say more.
   search and status.
 - `BILL_NOT_ACTIONABLE`, `BILL_PAYMENT_SCHEDULED` or `BILL_PAYMENT_IN_PROGRESS`: the bill cannot
   change now. It is archived or cancelled, a payment for it is scheduled, or a person is paying it.
-  Report the bill's link and stop. For a scheduled payment, say a person cancels that payment in
-  Arios first.
+  Report the bill's link. After a correction refusal in step 8, go on to submit. If another call
+  gets this refusal, stop. For a scheduled payment, say a person cancels it in Arios first.
 - `BILL_UPLOAD_DISABLED` or `DOCUMENT_SERVICE_UNAVAILABLE`: no upload is possible now. Report the
   bill's link so the person adds the file in Arios, and stop.
 - `IDEMPOTENCY_KEY_REUSED`: the key was used for other arguments. Use a new key for new arguments,
@@ -388,10 +293,6 @@ they say more.
   person for the date. Never calculate a date, and never guess the order of day, month and year.
 - `INVALID_BILL`: an amount has no currency, or a value cannot be read. Ask the person for the
   missing fact, such as the currency of the amount. Never choose a currency yourself.
-- `BILL_FIELD_NOT_ACCEPTABLE` that says the call names no field: accept nothing, and submit the bill
-  as step 9 says. When it says a named field is not one the tool lists, name only the fields step 8
-  lists. When it says the amount and its currency are one fact, name both or neither, as step 8
-  says.
 - `BILL_UPLOAD_CONTENT_TYPE_NOT_ALLOWED`: this company's bills do not accept the file type, and the
   refusal lists the types they accept. Name those types, ask the person for the invoice in one of
   them, and give the bill's link. Never request an upload under a content type the file does not
@@ -419,9 +320,9 @@ person. Follow it, whichever app you run in.
 
 ## Wait for the person
 
-Wait after the submit of step 9 when its result says `waiting_for_you`. A correction or an accept
-never starts the wait. First give the step to the person as the section above says, so they can act
-while you wait.
+Wait after the submit of step 9 when its result says `waiting_for_you`. A correction never starts
+the wait. First give the step to the person as the section above says, so they can act while you
+wait.
 
 When `presented` is `link`, or the result has no `presented`, your reply must hold the result's full
 `link` before you call the read. Copy it as it is. The person has no other way to open the step, and
